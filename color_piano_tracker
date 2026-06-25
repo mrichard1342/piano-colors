@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Color is Your Music?</title>
+    <!-- Soundfont Player CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff;
+            color: #121212;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px;
+            margin: 0;
+        }
+
+        h1 {
+            color: #000000;
+            margin-bottom: 5px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        p {
+            color: #555555;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .instructions {
+            font-size: 0.9rem;
+            color: #666666;
+            margin-bottom: 25px;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.4;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        .spinner {
+            border: 4px solid rgba(0,0,0,0.1);
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            border-left-color: #9b59b6;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #color-picker {
+            display: none;
+        }
+
+        #catalog-container {
+            width: 100%;
+            max-width: 950px;
+            background-color: #f8f9fa;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+            box-sizing: border-box;
+        }
+        .catalog-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #666666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        #catalog-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+        }
+        .catalog-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #ffffff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+            user-select: none;
+        }
+        .catalog-item:hover {
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .catalog-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.15);
+            display: inline-block;
+        }
+
+        .mode-panel {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+            background: #f1f2f6;
+            padding: 10px 20px;
+            border-radius: 30px;
+        }
+        .btn-mode {
+            padding: 8px 16px;
+            border: 2px solid #cbd5e1;
+            background: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+        .btn-mode.active {
+            background: #2c3e50;
+            color: white;
+            border-color: #2c3e50;
+        }
+        .btn-record {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-record.recording {
+            animation: pulse 1.5s infinite;
+            background-color: #c0392b;
+        }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        #keyboard-container {
+            width: 100%;
+            max-width: 950px;
+            overflow-x: auto;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            -webkit-overflow-scrolling: touch;
+        }
+        #keyboard {
+            display: flex;
+            position: relative;
+            background: #121212;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            width: max-content;
+            margin: 0 auto;
+            user-select: none; 
+            -webkit-user-select: none;
+            touch-action: none; 
+        }
+        .key {
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 10px;
+            box-sizing: border-box;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .key.active {
+            transform: scaleY(0.96);
+            transform-origin: top;
+        }
+        .white-key {
+            width: 50px;
+            height: 220px;
+            background-color: #fcfcfc;
+            border: 1px solid #dcdcdc;
+            border-radius: 0 0 6px 6px;
+            z-index: 1;
+            color: #888;
+        }
+        .white-key.active { background-color: #e0e0e0; }
+        .black-key {
+            width: 32px;
+            height: 135px;
+            background-color: #181818;
+            margin-left: -16px;
+            margin-right: -16px;
+            z-index: 2;
+            border-radius: 0 0 4px 4px;
+            border: 1px solid #000;
+            color: #aaa;
+        }
+        .black-key.active { background-color: #000; }
+
+        #notation-container {
+            width: 100%;
+            max-width: 950px;
+            background-color: #fcfcfc;
+            border: 2px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        #scrolling-timeline-viewport {
+            width: 100%;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        #sheet-music {
+            width: 100%;
+            display: flex;
+            justify-content: flex-start;
+            min-height: 200px;
+            position: relative;
+        }
+
+        .note-head {
+            cursor: grab;
+        }
+        .note-head:active {
+            cursor: grabbing;
+        }
+
+        .measure-line-bar {
+            cursor: ew-resize;
+        }
+
+        #note-tooltip {
+            position: absolute;
+            background: #2c3e50;
+            color: #ffffff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            pointer-events: none;
+            display: none;
+            z-index: 300;
+            transform: translate(-50%, -130%);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+
+        #note-context-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 8px;
+            padding: 6px 0;
+            display: none;
+            z-index: 200;
+            flex-direction: column;
+            min-width: 170px;
+            max-height: 280px;
+            overflow-y: auto;
+        }
+        .context-item {
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            color: #333;
+        }
+        .context-item:hover {
+            background: #f1f2f6;
+            color: #000;
+        }
+        .context-section-title {
+            padding: 6px 14px 2px 14px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #888;
+            font-weight: bold;
+        }
+        .context-divider {
+            height: 1px;
+            background: #edf2f7;
+            margin: 4px 0;
+        }
+        .context-delete {
+            color: #e74c3c;
+        }
+        .context-delete:hover {
+            background: #fdf0f0;
+            color: #c0392b;
+        }
+
+        .controls-panel {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            width: 100%;
+            justify-content: center;
+        }
+        .btn-clear {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .btn-playback {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.1s ease;
+        }
+        .btn-playback:hover {
+            background-color: #27ae60;
+        }
+        .btn-playback.playing {
+            background-color: #f39c12;
+        }
+        #sustain-indicator {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #d63031;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0;
+            transition: opacity 0.1s ease;
+        }
+        #sustain-indicator.active { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <div style="font-size: 1.2rem; font-weight: bold; color: #121212;">Tuning the Piano...</div>
+        <div style="color: #666; margin-top: 5px; font-size: 0.9rem;">Streaming soundfonts from CDN</div>
+    </div>
+
+    <h1>What Color is Your Music?</h1>
+    <p>Right-click empty space to drop notes or rhythmic rests anywhere along the timeline!</p>
+    
+    <div class="mode-panel">
+        <button class="btn-mode active" id="mode-practice">Practice Mode</button>
+        <button class="btn-mode" id="mode-record">Melody Recorder</button>
+        <button class="btn-record" id="record-toggle">● Record</button>
+    </div>
+
+    <div class="instructions" id="info-message">
+        <strong>Practice Mode:</strong> Right-click blank spaces to add notes on G4 or insert structural rests. Use click-and-drag to adjust pitch configurations.
+    </div>
+
+    <input type="color" id="color-picker" value="#9b59b6">
+
+    <div id="catalog-container">
+        <div class="catalog-title">Click a note badge below to map its color:</div>
+        <div id="catalog-list"></div>
+    </div>
+
+    <div id="keyboard-container">
+        <div id="keyboard">
+            <div class="key white-key" id="key-a" data-note="C" data-midi="C4">A</div>
+            <div class="key black-key" id="key-w" data-note="C#" data-midi="Db4">W</div>
+            <div class="key white-key" id="key-s" data-note="D" data-midi="D4">S</div>
+            <div class="key black-key" id="key-e" data-note="D#" data-midi="Eb4">E</div>
+            <div class="key white-key" id="key-d" data-note="E" data-midi="E4">D</div>
+            <div class="key white-key" id="key-f" data-note="F" data-midi="F4">F</div>
+            <div class="key black-key" id="key-t" data-note="F#" data-midi="Gb4">T</div>
+            <div class="key white-key" id="key-g" data-note="G" data-midi="G4">G</div>
+            <div class="key black-key" id="key-y" data-note="G#" data-midi="Ab4">Y</div>
+            <div class="key white-key" id="key-h" data-note="A" data-midi="A4">H</div>
+            <div class="key black-key" id="key-u" data-note="A#" data-midi="Bb4">U</div>
+            <div class="key white-key" id="key-j" data-note="B" data-midi="B4">J</div>
+             
+            <div class="key white-key" id="key-k" data-note="C" data-midi="C5">K</div>
+            <div class="key black-key" id="key-o" data-note="C#" data-midi="Db5">O</div>
+            <div class="key white-key" id="key-l" data-note="D" data-midi="D5">L</div>
+            <div class="key black-key" id="key-p" data-note="D#" data-midi="Eb5">P</div>
+            <div class="key white-key" id="key-semi" data-note="E" data-midi="E5">;</div>
+            <div class="key white-key" id="key-quote" data-note="F" data-midi="F5">'</div>
+            <div class="key black-key" id="key-bracketl" data-note="F#" data-midi="Gb5">[</div>
+            <div class="key white-key" id="key-z" data-note="G" data-midi="G5">Z</div>
+            <div class="key black-key" id="key-bracketr" data-note="G#" data-midi="Ab5">]</div>
+            <div class="key white-key" id="key-x" data-note="A" data-midi="A5">X</div>
+            <div class="key black-key" id="key-backslash" data-note="A#" data-midi="Bb5">\</div>
+            <div class="key white-key" id="key-c" data-note="B" data-midi="B5">C</div>
+
+            <div class="key white-key" id="key-v" data-note="C" data-midi="C6">V</div>
+        </div>
+    </div>
+
+    <div id="notation-container">
+        <div id="scrolling-timeline-viewport">
+            <div id="sheet-music"></div>
+        </div>
+
+        <div id="note-tooltip">C5</div>
+
+        <div id="note-context-menu"></div>
+
+        <div class="controls-panel">
+            <button class="btn-playback" id="btn-playback">▶ Play Melody</button>
+            <button class="btn-clear" id="btn-clear">Clear Sheet Music</button>
+            <span id="sustain-indicator">Sustain Active</span>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        let pianoInstrument = null;
+        let isPointerDown = false; 
+        let isSustained = false;
+
+        let currentMode = 'practice'; 
+        let isRecording = false;
+        let recordStartTime = 0;
+
+        let isPlayingBack = false;
+        let playbackTimeouts = [];
+
+        const sustainedKeysQueue = new Set();
+        const activePlayingElements = new Set();
+        let activeEditingNote = null;
+
+        let totalMeasuresHistory = [];
+        let currentChordAttempt = [];
+        let measureSplitIndices = []; 
+
+        let isDraggingNote = false;
+        let draggedChordIndex = null;
+        let draggedNoteKeyIndex = null;
+        let initialDragY = 0;
+
+        let isDraggingMeasure = false;
+        let draggedMeasureIndex = null;
+        let contextMenuTargetIndex = null;
+
+        const noteSettings = {
+            'C': { color: '#e74c3c' }, 'C#': { color: '#9b59b6' }, 'D': { color: '#e67e22' },
+            'D#': { color: '#34495e' }, 'E': { color: '#f1c40f' }, 'F': { color: '#2ecc71' },
+            'F#': { color: '#16a085' }, 'G': { color: '#3498db' }, 'G#': { color: '#2c3e50' },
+            'A': { color: '#e84393' }, 'A#': { color: '#7f8c8d' }, 'B': { color: '#6c5ce7' }
+        };
+
+        const keyMap = {
+            'KeyA': 'key-a', 'KeyW': 'key-w', 'KeyS': 'key-s', 'KeyE': 'key-e', 'KeyD': 'key-d',
+            'KeyF': 'key-f', 'KeyT': 'key-t', 'KeyG': 'key-g', 'KeyY': 'key-y', 'KeyH': 'key-h',
+            'KeyU': 'key-u', 'KeyJ': 'key-j', 'KeyK': 'key-k', 'KeyO': 'key-o', 'KeyL': 'key-l',
+            'KeyP': 'key-p', 'Semicolon': 'key-semi', 'Quote': 'key-quote', 'BracketLeft': 'key-bracketl',
+            'KeyZ': 'key-z', 'BracketRight': 'key-bracketr', 'KeyX': 'key-x', 'Backslash': 'key-backslash',
+            'KeyC': 'key-c', 'KeyV': 'key-v'
+        };
+
+        const durationWeights = { 'w': 4, 'h': 2, 'q': 1, '8': 0.5 };
+        const restSymbols = { 'w': '𝄻', 'h': '𝄼', 'q': '𝄽', '8': '𝄾' };
+
+        const staffPitchScale = [
+            { midi: 'C6', note: 'C', step: 0 },
+            { midi: 'B5', note: 'B', step: 1 },
+            { midi: 'A5', note: 'A', step: 2 },
+            { midi: 'G5', note: 'G', step: 3 },
+            { midi: 'F5', note: 'F', step: 4 },
+            { midi: 'E5', note: 'E', step: 5 },
+            { midi: 'D5', note: 'D', step: 6 },
+            { midi: 'C5', note: 'C', step: 7 },
+            { midi: 'B4', note: 'B', step: 8 },
+            { midi: 'A4', note: 'A', step: 9 },
+            { midi: 'G4', note: 'G', step: 10 },
+            { midi: 'F4', note: 'F', step: 11 },
+            { midi: 'E4', note: 'E', step: 12 },
+            { midi: 'D4', note: 'D', step: 13 },
+            { midi: 'C4', note: 'C', step: 14 }
+        ];
+
+        function removeLoader() {
+            const loader = document.getElementById('loading-overlay');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.remove(), 500);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                Soundfont.instrument(audioCtx, 'acoustic_grand_piano', { soundfont: 'FluidR3_GM' })
+                    .then((piano) => {
+                        pianoInstrument = piano;
+                        removeLoader();
+                    }).catch(err => { removeLoader(); });
+            } catch (e) { removeLoader(); }
+
+            renderCatalog();
+            renderSheetMusic();
+        });
+
+        const modePracticeBtn = document.getElementById('mode-practice');
+        const modeRecordBtn = document.getElementById('mode-record');
+        const recordToggleBtn = document.getElementById('record-toggle');
+        const infoMessage = document.getElementById('info-message');
+        const colorPicker = document.getElementById('color-picker');
+        const sustainIndicator = document.getElementById('sustain-indicator');
+        const keys = document.querySelectorAll('.key');
+        const catalogList = document.getElementById('catalog-list');
+        const clearBtn = document.getElementById('btn-clear');
+        const playbackBtn = document.getElementById('btn-playback');
+        const timelineViewport = document.getElementById('scrolling-timeline-viewport');
+        const contextMenu = document.getElementById('note-context-menu');
+        const noteTooltip = document.getElementById('note-tooltip');
+
+        modePracticeBtn.addEventListener('click', () => {
+            currentMode = 'practice';
+            isRecording = false;
+            recordToggleBtn.style.display = 'none';
+            recordToggleBtn.classList.remove('recording');
+            modePracticeBtn.classList.add('active');
+            modeRecordBtn.classList.remove('active');
+        });
+
+        modeRecordBtn.addEventListener('click', () => {
+            currentMode = 'record';
+            recordToggleBtn.style.display = 'inline-flex';
+            modeRecordBtn.classList.add('active');
+            modePracticeBtn.classList.remove('active');
+        });
+
+        recordToggleBtn.addEventListener('click', () => {
+            if (!isRecording) {
+                isRecording = true;
+                recordStartTime = performance.now();
+                recordToggleBtn.classList.add('recording');
+                recordToggleBtn.textContent = '■ Stop';
+            } else {
+                isRecording = false;
+                recordToggleBtn.classList.remove('recording');
+                recordToggleBtn.textContent = '● Record';
+            }
+        });
+
+        function handleCatalogItemClick(note) {
+            activeEditingNote = note;
+            colorPicker.value = noteSettings[note].color;
+            colorPicker.click();
+        }
+
+        colorPicker.addEventListener('input', () => {
+            if (activeEditingNote) {
+                noteSettings[activeEditingNote].color = colorPicker.value;
+                renderCatalog();
+                renderSheetMusic();
+            }
+        });
+
+        function renderCatalog() {
+            catalogList.innerHTML = '';
+            Object.keys(noteSettings).forEach(note => {
+                const item = document.createElement('div');
+                item.className = 'catalog-item';
+                item.addEventListener('click', () => handleCatalogItemClick(note));
+                const dot = document.createElement('span');
+                dot.className = 'catalog-dot';
+                dot.style.backgroundColor = noteSettings[note].color;
+                const label = document.createElement('span');
+                label.textContent = note;
+                item.appendChild(dot);
+                item.appendChild(label);
+                catalogList.appendChild(item);
+            });
+        }
+
+        clearBtn.addEventListener('click', () => {
+            stopPlayback();
+            totalMeasuresHistory = [];
+            currentChordAttempt = [];
+            measureSplitIndices = [];
+            hideContextMenu();
+            renderSheetMusic();
+        });
+
+        playbackBtn.addEventListener('click', () => {
+            if (isPlayingBack) {
+                stopPlayback();
+            } else {
+                startPlayback();
+            }
+        });
+
+        function startPlayback() {
+            if (totalMeasuresHistory.length === 0) return;
+            isPlayingBack = true;
+            playbackBtn.textContent = '■ Stop Playback';
+            playbackBtn.classList.add('playing');
+            hideContextMenu();
+
+            let accumulatedDelay = 0;
+            const baseBeatMs = 500; 
+
+            totalMeasuresHistory.forEach((item, idx) => {
+                let noteTimeout = setTimeout(() => {
+                    highlightPlayingNoteSvg(idx);
+                    if (pianoInstrument && item.keys && item.keys.length > 0) {
+                        item.keys.forEach(k => {
+                            let durationInBeats = durationWeights[item.duration] || 1;
+                            let soundNode = pianoInstrument.play(k.midi);
+                            setTimeout(() => {
+                                try { soundNode.stop(); } catch(e){}
+                            }, durationInBeats * baseBeatMs - 20);
+                        });
+                    }
+                }, accumulatedDelay);
+
+                playbackTimeouts.push(noteTimeout);
+                accumulatedDelay += (durationWeights[item.duration] || 1) * baseBeatMs;
+            });
+
+            let finalCleanup = setTimeout(() => { stopPlayback(); }, accumulatedDelay);
+            playbackTimeouts.push(finalCleanup);
+        }
+
+        function stopPlayback() {
+            isPlayingBack = false;
+            playbackBtn.textContent = '▶ Play Melody';
+            playbackBtn.classList.remove('playing');
+            playbackTimeouts.forEach(t => clearTimeout(t));
+            playbackTimeouts = [];
+            document.querySelectorAll('.live-svg-note').forEach(n => n.setAttribute('opacity', '1'));
+        }
+
+        function highlightPlayingNoteSvg(index) {
+            document.querySelectorAll('.live-svg-note').forEach((n, idx) => {
+                if (idx === index) {
+                    n.setAttribute('opacity', '0.4');
+                } else {
+                    n.setAttribute('opacity', '1');
+                }
+            });
+        }
+
+        function calculateRhythmDuration(ms) {
+            if (ms > 1200) return 'w'; 
+            if (ms > 600)  return 'h'; 
+            if (ms > 220)  return 'q'; 
+            return '8';               
+        }
+
+        function renderSheetMusic() {
+            const container = document.getElementById('sheet-music');
+            container.innerHTML = '';
+
+            let measuresData = [];
+            let currentSubgroup = [];
+
+            totalMeasuresHistory.forEach((item, idx) => {
+                currentSubgroup.push(item);
+                if (measureSplitIndices.includes(idx) || idx === totalMeasuresHistory.length - 1) {
+                    measuresData.push(currentSubgroup);
+                    currentSubgroup = [];
+                }
+            });
+
+            if (measuresData.length === 0) {
+                measuresData = [[]];
+            }
+
+            const baseClefPaddingWidth = 100;
+            const measureDefaultWidth = 160;
+            const totalWidth = baseClefPaddingWidth + (measuresData.length * measureDefaultWidth) + 120;
+
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("width", totalWidth);
+            svg.setAttribute("height", "200");
+            svg.style.overflow = "visible";
+
+            for (let i = 0; i < 5; i++) {
+                let y = 60 + (i * 12);
+                let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", 10);
+                line.setAttribute("y1", y);
+                line.setAttribute("x2", totalWidth - 40);
+                line.setAttribute("y2", y);
+                line.setAttribute("stroke", "#cbd5e1");
+                line.setAttribute("stroke-width", "2");
+                svg.appendChild(line);
+            }
+
+            let clefText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            clefText.setAttribute("x", 25);
+            clefText.setAttribute("y", 98);
+            clefText.setAttribute("font-family", "Georgia, serif");
+            clefText.setAttribute("font-size", "50");
+            clefText.setAttribute("fill", "#121212");
+            clefText.style.userSelect = "none";
+            clefText.textContent = "𝄞";
+            svg.appendChild(clefText);
+
+            svg.addEventListener('contextmenu', (e) => {
+                if (e.target === svg || e.target.tagName === 'line') {
+                    triggerBlankCanvasContextMenu(e);
+                }
+            });
+
+            currentX = baseClefPaddingWidth;
+            let currentGlobalNoteIdx = 0;
+
+            measuresData.forEach((measureNotes, mIdx) => {
+                let noteStartX = currentX + 20;
+                let spacing = (measureDefaultWidth - 40) / Math.max(1, measureNotes.length);
+
+                measureNotes.forEach((histItem, innerIdx) => {
+                    let noteX = noteStartX + (innerIdx * spacing);
+                    let closureIndex = currentGlobalNoteIdx; 
+
+                    let g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    g.setAttribute("class", "live-svg-note");
+                    g.setAttribute("data-index", currentGlobalNoteIdx);
+
+                    if (histItem.isRest) {
+                        let restGlyph = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        restGlyph.setAttribute("x", noteX - 6);
+                        restGlyph.setAttribute("y", 90);
+                        restGlyph.setAttribute("font-family", "Georgia, serif");
+                        restGlyph.setAttribute("font-size", "34");
+                        restGlyph.setAttribute("fill", "#64748b");
+                        restGlyph.style.userSelect = "none";
+                        restGlyph.style.cursor = "pointer";
+                        restGlyph.textContent = restSymbols[histItem.duration] || '𝄽';
+                        g.appendChild(restGlyph);
+
+                        restGlyph.addEventListener('mouseenter', (e) => showTooltip(e, `Rest (${histItem.duration})`));
+                        restGlyph.addEventListener('mousemove', moveTooltip);
+                        restGlyph.addEventListener('mouseleave', hideTooltip);
+                    } 
+                    else if (histItem.keys && histItem.keys.length > 0) {
+                        let yPositions = histItem.keys.map(k => {
+                            let match = staffPitchScale.find(p => p.midi === k.midi) || staffPitchScale[6];
+                            return 36 + (match.step * 6);
+                        });
+
+                        let minY = Math.min(...yPositions);
+                        let maxY = Math.max(...yPositions);
+
+                        if (histItem.duration !== 'w') {
+                            let stem = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            stem.setAttribute("x1", noteX + 7);
+                            stem.setAttribute("y1", maxY);
+                            stem.setAttribute("x2", noteX + 7);
+                            stem.setAttribute("y2", minY - 32);
+                            stem.setAttribute("stroke", "#121212");
+                            stem.setAttribute("stroke-width", "2");
+                            g.appendChild(stem);
+
+                            if (histItem.duration === '8') {
+                                let flag = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                                flag.setAttribute("d", `M ${noteX + 7} ${minY - 32} Q ${noteX + 17} ${minY - 22} ${noteX + 15} ${minY - 14}`);
+                                flag.setAttribute("stroke", "#121212");
+                                flag.setAttribute("stroke-width", "2");
+                                flag.setAttribute("fill", "none");
+                                g.appendChild(flag);
+                            }
+                        }
+
+                        histItem.keys.forEach((kData, keyIdx) => {
+                            let scaleMatch = staffPitchScale.find(p => p.midi === kData.midi) || staffPitchScale[6];
+                            let noteY = 36 + (scaleMatch.step * 6);
+
+                            if (scaleMatch.step >= 12) {
+                                for (let ly = 120; ly <= noteY; ly += 12) {
+                                    let ledger = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                                    ledger.setAttribute("x1", noteX - 10); ledger.setAttribute("y1", ly);
+                                    ledger.setAttribute("x2", noteX + 22); ledger.setAttribute("y2", ly);
+                                    ledger.setAttribute("stroke", "#333"); ledger.setAttribute("stroke-width", "1.5");
+                                    g.appendChild(ledger);
+                                }
+                            }
+                            if (scaleMatch.step <= 0) {
+                                let ledger = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                                ledger.setAttribute("x1", noteX - 10); ledger.setAttribute("y1", 36);
+                                ledger.setAttribute("x2", noteX + 22); ledger.setAttribute("y2", 36);
+                                ledger.setAttribute("stroke", "#333"); ledger.setAttribute("stroke-width", "1.5");
+                                g.appendChild(ledger);
+                            }
+
+                            let head = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+                            head.setAttribute("cx", noteX);
+                            head.setAttribute("cy", noteY);
+                            head.setAttribute("rx", "7.5"); head.setAttribute("ry", "5.5");
+                            head.setAttribute("class", "note-head");
+                            head.setAttribute("transform", `rotate(-20, ${noteX}, ${noteY})`);
+
+                            let noteColor = noteSettings[kData.note]?.color || '#9b59b6';
+                            if (histItem.duration === 'w' || histItem.duration === 'h') {
+                                head.setAttribute("fill", "#ffffff");
+                                head.setAttribute("stroke", noteColor);
+                                head.setAttribute("stroke-width", "3.5");
+                            } else {
+                                head.setAttribute("fill", noteColor);
+                            }
+
+                            g.appendChild(head);
+
+                            head.addEventListener('mouseenter', (e) => showTooltip(e, `${kData.note}${kData.midi.slice(-1)}`));
+                            head.addEventListener('mousemove', moveTooltip);
+                            head.addEventListener('mouseleave', hideTooltip);
+
+                            head.addEventListener('mousedown', (e) => {
+                                if (e.button === 0) setupNoteDrag(e, closureIndex, keyIdx);
+                            });
+                            head.addEventListener('touchstart', (e) => setupNoteDrag(e, closureIndex, keyIdx), { passive: false });
+                        });
+                    }
+
+                    g.addEventListener('contextmenu', (e) => triggerNoteContextMenu(e, closureIndex));
+                    svg.appendChild(g);
+                    currentGlobalNoteIdx++;
+                });
+
+                currentX += measureDefaultWidth;
+
+                if (mIdx < measuresData.length - 1) {
+                    let dividerLineG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    dividerLineG.setAttribute("class", "measure-line-bar");
+
+                    let maskLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    maskLine.setAttribute("x1", currentX); maskLine.setAttribute("y1", 40);
+                    maskLine.setAttribute("x2", currentX); maskLine.setAttribute("y2", 130);
+                    maskLine.setAttribute("stroke", "transparent"); maskLine.setAttribute("stroke-width", "16");
+                    dividerLineG.appendChild(maskLine);
+
+                    let visibleLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    visibleLine.setAttribute("x1", currentX); visibleLine.setAttribute("y1", 60);
+                    visibleLine.setAttribute("x2", currentX); visibleLine.setAttribute("y2", 108);
+                    visibleLine.setAttribute("stroke", "#1e293b"); visibleLine.setAttribute("stroke-width", "3.5");
+                    dividerLineG.appendChild(visibleLine);
+
+                    dividerLineG.addEventListener('mousedown', (e) => setupMeasureLineDrag(e, mIdx));
+                    dividerLineG.addEventListener('touchstart', (e) => setupMeasureLineDrag(e, mIdx), { passive: false });
+
+                    svg.appendChild(dividerLineG);
+                }
+            });
+
+            let terminalLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            terminalLine.setAttribute("x1", currentX); terminalLine.setAttribute("y1", 60);
+            terminalLine.setAttribute("x2", currentX); terminalLine.setAttribute("y2", 108);
+            terminalLine.setAttribute("stroke", "#000000"); terminalLine.setAttribute("stroke-width", "4");
+            svg.appendChild(terminalLine);
+
+            container.appendChild(svg);
+        }
+
+        function showTooltip(e, label) {
+            noteTooltip.textContent = label;
+            noteTooltip.style.display = 'block';
+            moveTooltip(e);
+        }
+        function moveTooltip(e) {
+            const viewportRect = timelineViewport.getBoundingClientRect();
+            let x = e.clientX - viewportRect.left + timelineViewport.scrollLeft;
+            let y = e.clientY - viewportRect.top;
+            noteTooltip.style.left = `${x}px`;
+            noteTooltip.style.top = `${y}px`;
+        }
+        function hideTooltip() {
+            noteTooltip.style.display = 'none';
+        }
+
+        /* Blank Canvas Context Menu Expansion with Rests */
+        function triggerBlankCanvasContextMenu(e) {
+            e.preventDefault();
+            hideContextMenu();
+
+            contextMenuTargetIndex = { type: 'blank_canvas' };
+            contextMenu.innerHTML = `
+                <div class="context-section-title">Add Pitch (G4)</div>
+                <div class="context-item" data-action="note" data-dur="w">Whole Note (G4)</div>
+                <div class="context-item" data-action="note" data-dur="h">Half Note (G4)</div>
+                <div class="context-item" data-action="note" data-dur="q">Quarter Note (G4)</div>
+                <div class="context-item" data-action="note" data-dur="8">Eighth Note (G4)</div>
+                <div class="context-divider"></div>
+                <div class="context-section-title">Add Musical Rest</div>
+                <div class="context-item" data-action="rest" data-dur="w" style="color: #475569;">Whole Rest 𝄻</div>
+                <div class="context-item" data-action="rest" data-dur="h" style="color: #475569;">Half Rest 𝄼</div>
+                <div class="context-item" data-action="rest" data-dur="q" style="color: #475569;">Quarter Rest 𝄽</div>
+                <div class="context-item" data-action="rest" data-dur="8" style="color: #475569;">Eighth Rest 𝄾</div>
+            `;
+
+            document.querySelectorAll('#note-context-menu .context-item[data-dur]').forEach(item => {
+                item.addEventListener('click', (ev) => {
+                    let action = ev.target.getAttribute('data-action');
+                    let dur = ev.target.getAttribute('data-dur');
+                    
+                    if (action === 'note') {
+                        insertDefaultG4Note(dur);
+                    } else if (action === 'rest') {
+                        insertStructuralRest(dur);
+                    }
+                    hideContextMenu();
+                });
+            });
+
+            positionContextMenu(e);
+        }
+
+        /* Note Context Menu Construction */
+        function triggerNoteContextMenu(e, index) {
+            e.preventDefault();
+            e.stopPropagation();
+            hideContextMenu();
+
+            contextMenuTargetIndex = { type: 'existing_note', globalIdx: index };
+            let chordItem = totalMeasuresHistory[index];
+
+            let htmlString = ``;
+            if (!chordItem.isRest) {
+                htmlString += `
+                    <div class="context-item" id="menu-add-chord-g4" style="font-weight:600; color:#2ecc71;">+ Add G4 to Chord</div>
+                    <div class="context-divider"></div>
+                `;
+            }
+
+            htmlString += `
+                <div class="context-section-title">Change Duration</div>
+                <div class="context-item" data-dur="w">Whole</div>
+                <div class="context-item" data-dur="h">Half</div>
+                <div class="context-item" data-dur="q">Quarter</div>
+                <div class="context-item" data-dur="8">Eighth</div>
+            `;
+
+            if (!chordItem.isRest && chordItem.keys) {
+                htmlString += `
+                    <div class="context-divider"></div>
+                    <div class="context-section-title">Remove Notes</div>
+                `;
+                chordItem.keys.forEach((kData, kIdx) => {
+                    htmlString += `<div class="context-item context-delete menu-remove-single-note" data-key-idx="${kIdx}">✕ Remove ${kData.note}${kData.midi.slice(-1)}</div>`;
+                });
+            }
+
+            htmlString += `
+                <div class="context-divider"></div>
+                <div class="context-item context-delete" id="menu-delete-entire-chord" style="font-weight:bold;">✕ Delete Entire Structure</div>
+            `;
+
+            contextMenu.innerHTML = htmlString;
+
+            // Bind pure duration swaps
+            document.querySelectorAll('#note-context-menu .context-item[data-dur]').forEach(item => {
+                item.addEventListener('click', (ev) => {
+                    totalMeasuresHistory[index].duration = ev.target.getAttribute('data-dur');
+                    renderSheetMusic();
+                    hideContextMenu();
+                });
+            });
+
+            if (!chordItem.isRest) {
+                document.getElementById('menu-add-chord-g4').addEventListener('click', () => {
+                    if (!chordItem.keys.some(k => k.midi === 'G4')) {
+                        chordItem.keys.push({ midi: 'G4', note: 'G' });
+                        if (pianoInstrument) {
+                            pianoInstrument.play('G4', audioCtx.currentTime, { duration: 0.2 });
+                        }
+                        renderSheetMusic();
+                    }
+                    hideContextMenu();
+                });
+
+                document.querySelectorAll('.menu-remove-single-note').forEach(btn => {
+                    btn.addEventListener('click', (ev) => {
+                        let keyIdx = parseInt(ev.target.getAttribute('data-key-idx'));
+                        chordItem.keys.splice(keyIdx, 1);
+                        
+                        if (chordItem.keys.length === 0) {
+                            totalMeasuresHistory.splice(index, 1);
+                            measureSplitIndices = measureSplitIndices.map(v => v >= index ? v - 1 : v).filter(v => v >= 0);
+                        }
+                        renderSheetMusic();
+                        hideContextMenu();
+                    });
+                });
+            }
+
+            document.getElementById('menu-delete-entire-chord').addEventListener('click', () => {
+                totalMeasuresHistory.splice(index, 1);
+                measureSplitIndices = measureSplitIndices.map(v => v >= index ? v - 1 : v).filter(v => v >= 0);
+                renderSheetMusic();
+                hideContextMenu();
+            });
+
+            positionContextMenu(e);
+        }
+
+        function insertDefaultG4Note(duration) {
+            totalMeasuresHistory.push({
+                duration: duration,
+                keys: [{ midi: 'G4', note: 'G' }],
+                isRest: false
+            });
+            if (totalMeasuresHistory.length % 4 === 0) {
+                measureSplitIndices.push(totalMeasuresHistory.length - 1);
+            }
+            if (pianoInstrument) {
+                pianoInstrument.play('G4', audioCtx.currentTime, { duration: 0.2 });
+            }
+            renderSheetMusic();
+        }
+
+        function insertStructuralRest(duration) {
+            totalMeasuresHistory.push({
+                duration: duration,
+                keys: [],
+                isRest: true
+            });
+            if (totalMeasuresHistory.length % 4 === 0) {
+                measureSplitIndices.push(totalMeasuresHistory.length - 1);
+            }
+            renderSheetMusic();
+        }
+
+        function positionContextMenu(e) {
+            const bounds = document.getElementById('notation-container').getBoundingClientRect();
+            contextMenu.style.left = `${e.clientX - bounds.left + 10}px`;
+            contextMenu.style.top = `${e.clientY - bounds.top}px`;
+            contextMenu.style.display = 'flex';
+        }
+
+        function hideContextMenu() {
+            contextMenu.style.display = 'none';
+            contextMenuTargetIndex = null;
+        }
+
+        window.addEventListener('click', (e) => {
+            if (!contextMenu.contains(e.target)) hideContextMenu();
+        });
+
+        /* Phrase Divider Bars */
+        function setupMeasureLineDrag(measureEvent, measureIndex) {
+            measureEvent.preventDefault();
+            isDraggingMeasure = true;
+            draggedMeasureIndex = measureIndex;
+
+            window.addEventListener('mousemove', handleMeasureDragging);
+            window.addEventListener('touchmove', handleMeasureDragging, { passive: false });
+            window.addEventListener('mouseup', completeMeasureDrag);
+            window.addEventListener('touchend', completeMeasureDrag);
+        }
+
+        function handleMeasureDragging(moveEvent) {
+            if (!isDraggingMeasure || draggedMeasureIndex === null) return;
+            moveEvent.preventDefault();
+
+            const svgElement = document.querySelector('#sheet-music svg');
+            const rect = svgElement.getBoundingClientRect();
+            let clientX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+            let relativeX = clientX - rect.left;
+
+            const baseClefPaddingWidth = 100;
+            const measureDefaultWidth = 160;
+
+            let adjustedX = relativeX - baseClefPaddingWidth;
+            let estimatedIndexPosition = Math.round(adjustedX / (measureDefaultWidth / 2));
+            estimatedIndexPosition = Math.max(0, Math.min(totalMeasuresHistory.length - 2, estimatedIndexPosition));
+
+            if (!measureSplitIndices.includes(estimatedIndexPosition)) {
+                measureSplitIndices[draggedMeasureIndex] = estimatedIndexPosition;
+                measureSplitIndices.sort((a, b) => a - b);
+                renderSheetMusic();
+            }
+        }
+
+        function completeMeasureDrag() {
+            isDraggingMeasure = false;
+            draggedMeasureIndex = null;
+            window.removeEventListener('mousemove', handleMeasureDragging);
+            window.removeEventListener('touchmove', handleMeasureDragging);
+            window.removeEventListener('mouseup', completeMeasureDrag);
+            window.removeEventListener('touchend', completeMeasureDrag);
+        }
+
+        /* Pitch Drag Handling */
+        function setupNoteDrag(dragEvent, chordIndex, keyIndex) {
+            if (isPlayingBack || isDraggingMeasure) return;
+            dragEvent.preventDefault();
+            isDraggingNote = true;
+            draggedChordIndex = chordIndex;
+            draggedNoteKeyIndex = keyIndex;
+            let clientY = dragEvent.touches ? dragEvent.touches[0].clientY : dragEvent.clientY;
+            initialDragY = clientY;
+
+            window.addEventListener('mousemove', handleNoteDragging);
+            window.addEventListener('touchmove', handleNoteDragging, { passive: false });
+            window.addEventListener('mouseup', completeNoteDrag);
+            window.addEventListener('touchend', completeNoteDrag);
+        }
+
+        function handleNoteDragging(moveEvent) {
+            if (!isDraggingNote || draggedChordIndex === null || draggedNoteKeyIndex === null) return;
+            moveEvent.preventDefault();
+            let clientY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
+            let deltaY = clientY - initialDragY;
+
+            if (Math.abs(deltaY) >= 6) {
+                let stepsMoved = Math.round(deltaY / 6);
+                if (stepsMoved !== 0) {
+                    let chordItem = totalMeasuresHistory[draggedChordIndex];
+                    if (chordItem && !chordItem.isRest && chordItem.keys[draggedNoteKeyIndex]) {
+                        let currentPitch = chordItem.keys[draggedNoteKeyIndex];
+                        let scaleMatchIdx = staffPitchScale.findIndex(p => p.midi === currentPitch.midi);
+                        
+                        if (scaleMatchIdx !== -1) {
+                            let newScaleIdx = scaleMatchIdx + stepsMoved;
+                            newScaleIdx = Math.max(0, Math.min(staffPitchScale.length - 1, newScaleIdx));
+                            
+                            let targetPitchData = staffPitchScale[newScaleIdx];
+                            if (targetPitchData.midi !== currentPitch.midi) {
+                                chordItem.keys[draggedNoteKeyIndex] = { midi: targetPitchData.midi, note: targetPitchData.note };
+                                
+                                if (pianoInstrument) {
+                                    pianoInstrument.play(targetPitchData.midi, audioCtx.currentTime, { duration: 0.2 });
+                                }
+                                
+                                renderSheetMusic();
+                                initialDragY = clientY; 
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function completeNoteDrag() {
+            isDraggingNote = false;
+            draggedChordIndex = null;
+            draggedNoteKeyIndex = null;
+            window.removeEventListener('mousemove', handleNoteDragging);
+            window.removeEventListener('touchmove', handleNoteDragging);
+            window.removeEventListener('mouseup', completeNoteDrag);
+            window.removeEventListener('touchend', completeNoteDrag);
+        }
+
+        function activateKey(keyElement) {
+            if (!keyElement) return;
+            sustainedKeysQueue.delete(keyElement);
+            if (activePlayingElements.has(keyElement)) return;
+            
+            keyElement.classList.add('active');
+            activePlayingElements.add(keyElement);
+            
+            const midiNote = keyElement.getAttribute('data-midi');
+            const pitchNote = keyElement.getAttribute('data-note');
+
+            const noteData = { midi: midiNote, note: pitchNote, downTime: performance.now() };
+            currentChordAttempt.push(noteData);
+
+            if (pianoInstrument) {
+                keyElement.soundNode = pianoInstrument.play(midiNote);
+            }
+        }
+
+        function requestDeactivateKey(keyElement) {
+            if (!keyElement) return;
+            if (isSustained) {
+                sustainedKeysQueue.add(keyElement);
+            } else {
+                deactivateKey(keyElement);
+            }
+        }
+
+        function deactivateKey(keyElement) {
+            if (!keyElement || !activePlayingElements.has(keyElement)) return;
+            
+            keyElement.classList.remove('active');
+            activePlayingElements.delete(keyElement);
+            
+            if (keyElement.soundNode) {
+                keyElement.soundNode.stop();
+                delete keyElement.soundNode;
+            }
+
+            if (activePlayingElements.size === 0 && !isSustained && currentChordAttempt.length > 0) {
+                let finalDuration = 'q'; 
+                
+                if (currentMode === 'record' && !isRecording) {
+                    currentChordAttempt = [];
+                    return; 
+                }
+
+                let longestHold = 0;
+                const now = performance.now();
+                currentChordAttempt.forEach(n => {
+                    let holdTime = now - n.downTime;
+                    if (holdTime > longestHold) longestHold = holdTime;
+                });
+                finalDuration = calculateRhythmDuration(longestHold);
+
+                totalMeasuresHistory.push({
+                    duration: finalDuration,
+                    keys: currentChordAttempt.map(n => ({ midi: n.midi, note: n.note })),
+                    isRest: false
+                });
+
+                if (totalMeasuresHistory.length % 4 === 0) {
+                    measureSplitIndices.push(totalMeasuresHistory.length - 1);
+                }
+
+                currentChordAttempt = []; 
+                renderSheetMusic();
+            }
+        }
+
+        window.addEventListener('pointerdown', () => { isPointerDown = true; });
+        window.addEventListener('pointerup', () => { 
+            isPointerDown = false; 
+            keys.forEach(k => {
+                if(k.dataset.pointerActive) {
+                    delete k.dataset.pointerActive;
+                    requestDeactivateKey(k);
+                }
+            });
+        });
+
+        keys.forEach(key => {
+            key.addEventListener('pointerdown', (e) => {
+                key.releasePointerCapture(e.pointerId); 
+                e.preventDefault();
+                key.dataset.pointerActive = "true";
+                activateKey(key);
+            });
+            key.addEventListener('pointerenter', () => {
+                if (isPointerDown) {
+                    key.dataset.pointerActive = "true";
+                    activateKey(key);
+                }
+            });
+            key.addEventListener('pointerleave', () => {
+                if (key.dataset.pointerActive) {
+                    delete key.dataset.pointerActive;
+                    requestDeactivateKey(key);
+                }
+            });
+            key.addEventListener('pointerup', () => {
+                if (key.dataset.pointerActive) {
+                    delete key.dataset.pointerActive;
+                    requestDeactivateKey(key);
+                }
+            });
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!isSustained) {
+                    isSustained = true;
+                    sustainIndicator.classList.add('active');
+                }
+                return;
+            }
+            const targetId = keyMap[e.code];
+            if (targetId) activateKey(document.getElementById(targetId));
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                isSustained = false;
+                sustainIndicator.classList.remove('active');
+                sustainedKeysQueue.forEach(keyElement => deactivateKey(keyElement));
+                sustainedKeysQueue.clear();
+
+                if (currentChordAttempt.length > 0) {
+                    let longestHold = 0;
+                    const now = performance.now();
+                    currentChordAttempt.forEach(n => {
+                        let holdTime = now - n.downTime;
+                        if (holdTime > longestHold) longestHold = holdTime;
+                    });
+                    let finalDur = calculateRhythmDuration(longestHold);
+                    
+                    if (currentMode === 'record' && !isRecording) {
+                        currentChordAttempt = [];
+                        return;
+                    }
+
+                    totalMeasuresHistory.push({
+                        duration: finalDur,
+                        keys: currentChordAttempt.map(n => ({ midi: n.midi, note: n.note })),
+                        isRest: false
+                    });
+
+                    if (totalMeasuresHistory.length % 4 === 0) {
+                        measureSplitIndices.push(totalMeasuresHistory.length - 1);
+                    }
+
+                    currentChordAttempt = [];
+                    renderSheetMusic();
+                }
+                return;
+            }
+            const targetId = keyMap[e.code];
+            if (targetId) requestDeactivateKey(document.getElementById(targetId));
+        });
+    </script>
+</body>
+</html>
